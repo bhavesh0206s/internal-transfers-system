@@ -3,6 +3,7 @@ package db
 import (
 	"context"
 	"database/sql"
+	"errors"
 )
 
 type Queries interface {
@@ -32,11 +33,19 @@ func (q *queries) UpdateAccount(ctx context.Context, accountId int64, balance fl
 
 func (q *queries) GetAccount(ctx context.Context, accountId int64) (*Account, error) {
 	var account Account
-	err := q.db.QueryRowContext(ctx, "SELECT account_id, balance FROM accounts WHERE account_id = $1", accountId).Scan(&account.AccountID, &account.Balance)
+
+	err := q.db.QueryRowContext(ctx,
+		"SELECT account_id, balance FROM accounts WHERE account_id = $1",
+		accountId,
+	).Scan(&account.AccountID, &account.Balance)
 
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, errors.New("account not found with the given accountId")
+		}
 		return nil, err
 	}
+
 	return &account, nil
 }
 
