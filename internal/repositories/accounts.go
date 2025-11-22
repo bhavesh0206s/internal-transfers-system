@@ -31,7 +31,9 @@ func (ar *accountRepository) GetAccountBalance(ctx context.Context, accountId in
 		log.Default().Println("Error fetching account: ", err)
 		return "", "", err
 	}
-	return strconv.FormatInt(account.AccountID, 10), strconv.FormatFloat(account.Balance, 'f', 2, 64), err
+	// Convert int64 (micros) to string
+	balanceFloat := float64(account.Balance) / 10000.0
+	return strconv.FormatInt(account.AccountID, 10), strconv.FormatFloat(balanceFloat, 'f', 4, 64), err
 }
 
 func (ar *accountRepository) CreateAccount(ctx context.Context, accountId *int64, initialBalance *string) error {
@@ -42,12 +44,14 @@ func (ar *accountRepository) CreateAccount(ctx context.Context, accountId *int64
 		return errors.New("initialBalance is nil")
 	}
 
-	balance, err := strconv.ParseFloat(*initialBalance, 64)
+	// Parse string to float first to handle decimals, then convert to int64 micros
+	balanceFloat, err := strconv.ParseFloat(*initialBalance, 64)
 	if err != nil {
 		return err
 	}
+	balanceMicros := int64(balanceFloat * 10000)
 
-	if err := ar.queries.CreateAccount(ctx, *accountId, balance); err != nil {
+	if err := ar.queries.CreateAccount(ctx, *accountId, balanceMicros); err != nil {
 		return err
 	}
 	return nil

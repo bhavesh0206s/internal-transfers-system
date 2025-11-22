@@ -10,7 +10,6 @@ import (
 
 type TransactionsRepository interface {
 	CreateTransaction(ctx context.Context, sourceAccountId *int64, destinationAccountId *int64, amount *string) error
-	CreateAccountDetails(ctx context.Context, sourceAccountId *int64, destinationAccountId *int64, amount *string) error
 }
 
 type transactionRepository struct {
@@ -23,62 +22,45 @@ func NewTransactionRepository(queries db.Queries) TransactionsRepository {
 	}
 }
 
-func (tr *transactionRepository) CreateAccountDetails(ctx context.Context, sourceAccountId *int64, destinationAccountId *int64, amount *string) error {
-	amountFloat, err := strconv.ParseFloat(*amount, 64)
-
-	if err != nil {
-		return err
-	}
-
-	sourceAccount, err := tr.queries.GetAccount(ctx, *sourceAccountId)
-
-	if err != nil {
-		return err
-	}
-
-	destinationAccount, err := tr.queries.GetAccount(ctx, *destinationAccountId)
-
-	if err != nil {
-		return err
-	}
-
-	if amountFloat > sourceAccount.Balance {
-		return errors.New("insufficient funds")
-	}
-
-	sourceAccounNewBalance := sourceAccount.Balance - amountFloat
-	destinationAccountNewBalance := destinationAccount.Balance + amountFloat
-
-	err = tr.queries.UpdateAccount(ctx, *sourceAccountId, sourceAccounNewBalance)
-
-	if err != nil {
-		return err
-	}
-
-	err = tr.queries.UpdateAccount(ctx, *destinationAccountId, destinationAccountNewBalance)
-
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
 func (tr *transactionRepository) CreateTransaction(ctx context.Context, sourceAccountId *int64, destinationAccountId *int64, amount *string) error {
-
 	amountFloat, err := strconv.ParseFloat(*amount, 64)
-
 	if err != nil {
 		return err
 	}
+	amountMicros := int64(amountFloat * 10000)
 
-	if err := tr.CreateAccountDetails(ctx, sourceAccountId, destinationAccountId, amount); err != nil {
-		return err
-	}
+	return tr.queries.ExecTx(ctx, func(q db.Queries) error {
+		sourceAccount, err := q.GetAccount(ctx, *sourceAccountId)
+		if err != nil {
+			return err
+		}
 
-	if err := tr.queries.CreateTransaction(ctx, *sourceAccountId, *destinationAccountId, amountFloat); err != nil {
-		return err
-	}
+		destinationAccount, err := q.GetAccount(ctx, *destinationAccountId)
+		if err != nil {
+			return err
+		}
 
-	return nil
+		if amountMicros > sourceAccount.Balance {
+			return errors.New("insufficient funds")
+		}
+
+		sourceAccounNewBalance := sourceAccount.Balance - amountMicros
+		destinationAccountNewBalance := destinationAccount.Balance + amountMicros
+
+		err = q.UpdateAccount(ctx, *sourceAccountId, sourceAccounNewBalance)
+		if err != nil {
+			return err
+		}
+
+		err = q.UpdateAccount(ctx, *destinationAccountId, destinationAccountNewBalance)
+		if err != nil {
+			return err
+		}
+
+		if err := q.CreateTransaction(ctx, *sourceAccountId, *destinationAccountId, amountMicros); err != nil {
+			return err
+		}
+
+		return nil
+	})
 }
