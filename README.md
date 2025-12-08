@@ -26,22 +26,28 @@ docker-compose up --build
 ### Create accounts:
 
 ``` bash
-curl -X POST http://localhost:8080/accounts \
+curl -X POST http://localhost:8080/api/v1/accounts \
   -H 'Content-Type: application/json' \
   -d '{"account_id":123,"initial_balance":"100.23344"}'
+```
+
+``` bash
+curl -X POST http://localhost:8080/api/v1/accounts \
+  -H 'Content-Type: application/json' \
+  -d '{"account_id":456,"initial_balance":"0.1"}'
 ```
 
 
 ### Get account:
 
 ``` bash
-curl http://localhost:8080/accounts/123
+curl http://localhost:8080/api/v1/accounts/123
 ```
 
 ### Create transaction:
 
 ``` bash
-curl -X POST http://localhost:8080/transactions \
+curl -X POST http://localhost:8080/api/v1/transactions \
   -H 'Content-Type: application/json' \
   -d '{"source_account_id":123,"destination_account_id":456,"amount":"50.12345"}'
 ```
